@@ -8,6 +8,7 @@ use std::sync::Arc;
 mod p0;
 mod p1;
 mod p2;
+mod p3;
 mod util;
 
 fn main() -> anyhow::Result<()> {
@@ -25,6 +26,7 @@ fn main() -> anyhow::Result<()> {
         "0" => run::<p0::P0>(bind),
         "1" => run::<p1::P1>(bind),
         "2" => run::<p2::P2>(bind),
+        "3" => run::<p3::P3>(bind),
         bogus => anyhow::bail!("invalid problem idx: {bogus}"),
     }?;
 
