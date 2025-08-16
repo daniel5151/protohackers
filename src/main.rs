@@ -7,6 +7,8 @@ use std::net::TcpStream;
 
 mod p0;
 mod p1;
+mod p2;
+mod util;
 
 fn main() -> anyhow::Result<()> {
     let mut args = std::env::args().skip(1);
@@ -22,6 +24,7 @@ fn main() -> anyhow::Result<()> {
     match prob.as_str() {
         "0" => run(bind, p0::p0),
         "1" => run(bind, p1::p1),
+        "2" => run(bind, p2::p2),
         bogus => anyhow::bail!("invalid problem idx: {bogus}"),
     }?;
 
@@ -35,7 +38,6 @@ fn run(
     let srv = TcpListener::bind(bind)?;
     loop {
         let (rx, addr) = srv.accept()?;
-        rx.set_nodelay(false)?;
         let tx = rx.try_clone()?;
         let mut mal = rx.try_clone()?;
         println!("connection from {addr}");
