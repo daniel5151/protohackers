@@ -1,9 +1,9 @@
 use anyhow::Context;
 use std::convert::Infallible;
-use std::io::Write;
 use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::net::TcpStream;
+use std::sync::Arc;
 
 mod p0;
 mod p1;
@@ -22,39 +22,34 @@ fn main() -> anyhow::Result<()> {
         .context("arg 2 missing: must provide problem idx")?;
 
     match prob.as_str() {
-        "0" => run(bind, p0::p0),
-        "1" => run(bind, p1::p1),
-        "2" => run(bind, p2::p2),
+        "0" => run::<p0::P0>(bind),
+        "1" => run::<p1::P1>(bind),
+        "2" => run::<p2::P2>(bind),
         bogus => anyhow::bail!("invalid problem idx: {bogus}"),
     }?;
 
     Ok(())
 }
 
-fn run(
-    bind: SocketAddr,
-    f: fn(TcpStream, TcpStream) -> anyhow::Result<bool>,
-) -> anyhow::Result<Infallible, std::io::Error> {
-    let srv = TcpListener::bind(bind)?;
-    loop {
-        let (rx, addr) = srv.accept()?;
-        let tx = rx.try_clone()?;
-        let mut mal = rx.try_clone()?;
-        println!("connection from {addr}");
-        std::thread::spawn(move || {
-            let mut handle = |res| {
-                println!("done responding to {addr}!");
-                match res {
-                    Ok(true) => anyhow::Ok(()),
-                    Ok(false) => Ok(mal.write_all(b"{}")?),
-                    Err(e) => Err(e),
-                }
-            };
+trait Server: Send + Sync + 'static {
+    fn init() -> Self;
+    fn accept(&self, addr: SocketAddr, tx: TcpStream, rx: TcpStream) -> anyhow::Result<()>;
+}
 
-            if let Err(e) = handle(f(tx, rx)) {
+fn run<T: Server>(bind: SocketAddr) -> anyhow::Result<Infallible, std::io::Error> {
+    let listener = TcpListener::bind(bind)?;
+    let server = Arc::new(T::init());
+    loop {
+        let (rx, addr) = listener.accept()?;
+        let tx = rx.try_clone()?;
+        let server = server.clone();
+        println!("[{addr}] connected");
+        std::thread::spawn(move || {
+            if let Err(e) = server.accept(addr, tx, rx) {
                 println!("{:#?}", e);
                 std::process::exit(1);
             }
+            println!("[{addr}] disconnected");
         });
     }
 }

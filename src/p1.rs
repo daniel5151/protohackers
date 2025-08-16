@@ -17,28 +17,45 @@ struct Response {
     prime: bool,
 }
 
-pub fn p1(mut tx: TcpStream, rx: TcpStream) -> anyhow::Result<bool> {
-    for line in BufReader::new(rx).lines() {
-        let line = line?;
-        println!("in: {line}");
-        let Ok(req) = serde_json::from_str::<Request>(&line) else {
-            return Ok(false);
-        };
+pub struct P1;
 
-        if req.method != "isPrime" {
-            return Ok(false);
+impl crate::Server for P1 {
+    fn init() -> Self {
+        Self
+    }
+
+    fn accept(
+        &self,
+        addr: std::net::SocketAddr,
+        mut tx: TcpStream,
+        rx: TcpStream,
+    ) -> anyhow::Result<()> {
+        for line in BufReader::new(rx).lines() {
+            let line = line?;
+            println!("[{addr}] {line}");
+
+            let Ok(req) = serde_json::from_str::<Request>(&line) else {
+                tx.write_all(b"x")?;
+                return Ok(());
+            };
+
+            if req.method != "isPrime" {
+                tx.write_all(b"x")?;
+                return Ok(());
+            }
+
+            serde_json::to_writer(
+                &mut tx,
+                &Response {
+                    method: "isPrime",
+                    prime: is_prime(req.number),
+                },
+            )?;
+            tx.write_all(b"\n")?;
         }
 
-        serde_json::to_writer(
-            &mut tx,
-            &Response {
-                method: "isPrime",
-                prime: is_prime(req.number),
-            },
-        )?;
-        tx.write_all(b"\n")?;
+        Ok(())
     }
-    Ok(true)
 }
 
 // thanks chatgpt
