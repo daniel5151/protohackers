@@ -1,7 +1,6 @@
 use std::net::TcpStream;
 
-pub fn p0(mut stream: TcpStream) -> anyhow::Result<()> {
-    let mut backstream = stream.try_clone().unwrap();
-    std::io::copy(&mut stream, &mut backstream)?;
-    Ok(())
+pub fn p0(mut tx: TcpStream, mut rx: TcpStream) -> anyhow::Result<bool> {
+    std::io::copy(&mut rx, &mut tx)?;
+    Ok(true)
 }
