@@ -3,12 +3,14 @@ use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::net::TcpStream;
+use std::net::UdpSocket;
 use std::sync::Arc;
 
 mod p0;
 mod p1;
 mod p2;
 mod p3;
+mod p4;
 mod util;
 
 fn main() -> anyhow::Result<()> {
@@ -27,6 +29,7 @@ fn main() -> anyhow::Result<()> {
         "1" => run::<p1::P1>(bind),
         "2" => run::<p2::P2>(bind),
         "3" => run::<p3::P3>(bind),
+        "4" => run_udp::<p4::P4>(bind),
         bogus => anyhow::bail!("invalid problem idx: {bogus}"),
     }?;
 
@@ -38,7 +41,7 @@ trait Server: Send + Sync + 'static {
     fn accept(&self, addr: SocketAddr, tx: TcpStream, rx: TcpStream) -> anyhow::Result<()>;
 }
 
-fn run<T: Server>(bind: SocketAddr) -> anyhow::Result<Infallible, std::io::Error> {
+fn run<T: Server>(bind: SocketAddr) -> anyhow::Result<Infallible> {
     let listener = TcpListener::bind(bind)?;
     let server = Arc::new(T::init());
     loop {
@@ -54,4 +57,13 @@ fn run<T: Server>(bind: SocketAddr) -> anyhow::Result<Infallible, std::io::Error
             println!("[{addr}] disconnected");
         });
     }
+}
+
+trait UdpServer: Send + Sync + 'static {
+    fn init() -> Self;
+    fn run(self, sock: UdpSocket) -> anyhow::Result<Infallible>;
+}
+
+fn run_udp<T: UdpServer>(bind: SocketAddr) -> anyhow::Result<Infallible> {
+    T::init().run(UdpSocket::bind(bind)?)
 }
